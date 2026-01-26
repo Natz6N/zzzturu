@@ -1,18 +1,18 @@
 {
-  "name": "baileys",
+  "name": "@Natz/baileys",
   "type": "module",
-  "version": "7.0.0-rc.9",
-  "description": "A WebSockets library for interacting with WhatsApp Web fork",
+  "version": "1.0.0fork ~ 7.0.0-rc.9",
+  "description": "A WebSockets library for interacting with WhatsApp Web",
   "keywords": [
     "whatsapp",
     "automation"
   ],
-  "homepage": "https://github.com/Natz6N/zzzturu",
+  "homepage": "https://github.com/WhiskeySockets/Baileys/",
   "repository": {
-    "url": "git@github.com:Natz6N/zzzturu.git"
+    "url": "git@github.com:WhiskeySockets/Baileys.git"
   },
   "license": "MIT",
-  "author": "Natz6N",
+  "author": "Natzsixn",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
@@ -21,6 +21,9 @@
     "engine-requirements.js"
   ],
   "scripts": {
+    "build:all": "npm run build && npm run build:docs",
+    "build:docs": "typedoc",
+    "build": "tsc -P tsconfig.build.json && tsc-esm-fix --tsconfig=tsconfig.build.json --ext=.js",
     "changelog:last": "conventional-changelog -p angular -r 2",
     "changelog:preview": "conventional-changelog -p angular -u",
     "changelog:update": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
@@ -45,7 +48,6 @@
     "libsignal": "git+https://github.com/whiskeysockets/libsignal-node",
     "lru-cache": "^11.1.0",
     "music-metadata": "^11.7.0",
-    "node-cache": "^5.1.2",
     "p-queue": "^9.0.0",
     "pino": "^9.6",
     "protobufjs": "^7.2.4",
