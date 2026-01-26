@@ -530,7 +530,7 @@ await sock.sendMessage(jid, {
                 limited_time_offer: {            
                     text: "Limited offer!",            
                     url: "https://oblivinx.com",            
-                    copy_code: "NEXUS2025",            
+                    copy_code: "obxI123",            
                     expiration_time: Date.now() + (24 * 60 * 60 * 1000)
                 },          
                 bottom_sheet: {            
@@ -590,7 +590,7 @@ await sock.sendMessage(jid, {
                     buttonParamsJson: JSON.stringify({              
                         display_text: "Copy Code",              
                         id: "123456789",              
-                        copy_code: "NEXUS2025"            
+                        copy_code: "obxI123"            
                     })          
                 }        
             ]      
