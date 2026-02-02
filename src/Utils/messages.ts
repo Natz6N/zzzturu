@@ -10,7 +10,7 @@ import {
 	type MediaType,
 	URL_REGEX,
 	WA_DEFAULT_EPHEMERAL
-} from '../Defaults'
+} from '../Defaults/index.js'
 import type {
 	AnyMediaMessageContent,
 	AnyMessageContent,
@@ -25,12 +25,12 @@ import type {
 	WAMessageContent,
 	WAMessageKey,
 	WATextMessage
-} from '../Types'
-import { WAMessageStatus, WAProto } from '../Types'
-import { isJidGroup, isJidNewsletter, isJidStatusBroadcast, jidNormalizedUser } from '../WABinary'
-import { sha256 } from './crypto'
-import { generateMessageIDV2, getKeyAuthor, unixTimestampSeconds } from './generics'
-import type { ILogger } from './logger'
+} from '../Types/index.js'
+import { WAMessageStatus, WAProto } from '../Types/index.js'
+import { isJidGroup, isJidNewsletter, isJidStatusBroadcast, jidNormalizedUser } from '../WABinary/index.js'
+import { sha256 } from './crypto.js'
+import { generateMessageIDV2, getKeyAuthor, unixTimestampSeconds } from './generics.js'
+import type { ILogger } from './logger.js'
 import {
 	downloadContentFromMessage,
 	encryptedStream,
@@ -39,7 +39,7 @@ import {
 	getAudioWaveform,
 	getRawMediaUploadData,
 	type MediaDownloadOptions
-} from './messages-media'
+} from './messages-media.js'
 
 type MediaUploadData = {
 	media: WAMediaUpload

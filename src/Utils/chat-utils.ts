@@ -12,18 +12,18 @@ import type {
 	LTHashState,
 	WAPatchCreate,
 	WAPatchName
-} from '../Types'
+} from '../Types/index.js'
 import {
 	type ChatLabelAssociation,
 	LabelAssociationType,
 	type MessageLabelAssociation
-} from '../Types/LabelAssociation'
-import { type BinaryNode, getBinaryNodeChild, getBinaryNodeChildren, isJidGroup, jidNormalizedUser } from '../WABinary'
-import { aesDecrypt, aesEncrypt, hkdf, hmacSign } from './crypto'
-import { toNumber } from './generics'
-import type { ILogger } from './logger'
-import { LT_HASH_ANTI_TAMPERING } from './lt-hash'
-import { downloadContentFromMessage } from './messages-media'
+} from '../Types/LabelAssociation.js'
+import { type BinaryNode, getBinaryNodeChild, getBinaryNodeChildren, isJidGroup, jidNormalizedUser } from '../WABinary/index.js'
+import { aesDecrypt, aesEncrypt, hkdf, hmacSign } from './crypto.js'
+import { toNumber } from './generics.js'
+import type { ILogger } from './logger.js'
+import { LT_HASH_ANTI_TAMPERING } from './lt-hash.js'
+import { downloadContentFromMessage } from './messages-media.js'
 
 type FetchAppStateSyncKey = (keyId: string) => Promise<proto.Message.IAppStateSyncKeyData | null | undefined>
 

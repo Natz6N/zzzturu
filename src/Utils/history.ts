@@ -1,11 +1,11 @@
 import { promisify } from 'util'
 import { inflate } from 'zlib'
 import { proto } from '../../WAProto/index.js'
-import type { Chat, Contact, WAMessage } from '../Types'
-import { WAMessageStubType } from '../Types'
-import { toNumber } from './generics'
-import { normalizeMessageContent } from './messages'
-import { downloadContentFromMessage } from './messages-media'
+import type { Chat, Contact, WAMessage } from '../Types/index.js'
+import { WAMessageStubType } from '../Types/index.js'
+import { toNumber } from './generics.js'
+import { normalizeMessageContent } from './messages.js'
+import { downloadContentFromMessage } from './messages-media.js'
 
 const inflatePromise = promisify(inflate)
 

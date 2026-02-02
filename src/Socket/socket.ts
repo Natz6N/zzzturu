@@ -11,9 +11,9 @@ import {
 	MIN_UPLOAD_INTERVAL,
 	NOISE_WA_HEADER,
 	UPLOAD_TIMEOUT
-} from '../Defaults'
-import type { LIDMapping, SocketConfig } from '../Types'
-import { DisconnectReason } from '../Types'
+} from '../Defaults/index.js'
+import type { LIDMapping, SocketConfig } from '../Types/index.js'
+import { DisconnectReason } from '../Types/index.js'
 import {
 	addTransactionCapability,
 	aesEncryptCTR,
@@ -33,8 +33,8 @@ import {
 	promiseTimeout,
 	signedKeyPair,
 	xmppSignedPreKey
-} from '../Utils'
-import { getPlatformId } from '../Utils/browser-utils'
+} from '../Utils/index.js'
+import { getPlatformId } from '../Utils/browser-utils.js'
 import {
 	assertNodeErrorFree,
 	type BinaryNode,
@@ -47,10 +47,10 @@ import {
 	jidDecode,
 	jidEncode,
 	S_WHATSAPP_NET
-} from '../WABinary'
+} from '../WABinary/index.js'
 import { BinaryInfo } from '../WAM/BinaryInfo.js'
-import { USyncQuery, USyncUser } from '../WAUSync/'
-import { WebSocketClient } from './Client'
+import { USyncQuery, USyncUser } from '../WAUSync/index.js'
+import { WebSocketClient } from './Client/index.js'
 
 /**
  * Connects to WA servers and performs:
