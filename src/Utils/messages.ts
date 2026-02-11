@@ -578,6 +578,8 @@ export const generateWAMessageContent = async (
 		}
 	} else if ('album' in message) {
 		throw new Boom('Album messages must be sent via sendMessage album flow', { statusCode: 400 })
+	} else if ('interactiveMessage' in message) {
+		throw new Boom('Interactive messages must be sent via sendMessage interactiveMessage flow', { statusCode: 400 })
 	} else {
 		m = await prepareWAMessageMedia(message, options)
 	}

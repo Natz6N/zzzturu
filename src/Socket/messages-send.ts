@@ -1,4 +1,4 @@
-import NodeCache from '@cacheable/node-cache'
+﻿import NodeCache from '@cacheable/node-cache'
 import { Boom } from '@hapi/boom'
 import { randomBytes } from 'crypto'
 import { proto } from '../../WAProto/index.js'
@@ -868,11 +868,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
 				const encodedMessageToSend = isMe
 					? encodeWAMessage({
-							deviceSentMessage: {
-								destinationJid,
-								message
-							}
-						})
+						deviceSentMessage: {
+							destinationJid,
+							message
+						}
+					})
 					: encodeWAMessage(message)
 
 				const { type, ciphertext: encryptedContent } = await signalRepository.encryptMessage({
@@ -936,7 +936,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			}
 
 			if (shouldIncludeDeviceIdentity) {
-				;(stanza.content as BinaryNode[]).push({
+				; (stanza.content as BinaryNode[]).push({
 					tag: 'device-identity',
 					attrs: {},
 					content: encodeSignedDeviceIdentity(authState.creds.account!, true)
@@ -951,7 +951,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			const tcTokenBuffer = contactTcTokenData[destinationJid]?.token
 
 			if (tcTokenBuffer) {
-				;(stanza.content as BinaryNode[]).push({
+				; (stanza.content as BinaryNode[]).push({
 					tag: 'tctoken',
 					attrs: {},
 					content: tcTokenBuffer
@@ -959,7 +959,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			}
 
 			if (additionalNodes && additionalNodes.length > 0) {
-				;(stanza.content as BinaryNode[]).push(...additionalNodes)
+				; (stanza.content as BinaryNode[]).push(...additionalNodes)
 			}
 
 			logger.debug({ msgId }, `sending message to ${participants.length} devices`)
@@ -1218,6 +1218,393 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 				return albumMsg
 			}
 
+			// â”€â”€ interactiveMessage: buttons, cards, lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+			if (typeof content === 'object' && 'interactiveMessage' in content && content.interactiveMessage) {
+				const ic = content.interactiveMessage
+				const mediaOptions = { upload: waUploadToServer, mediaCache: config.mediaCache, options: config.options, logger }
+
+				// â”€â”€ List message path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+				if (ic.sections && Array.isArray(ic.sections) && ic.sections.length > 0) {
+					const listMessage: proto.Message.IListMessage = {
+						title: ic.title || '',
+						description: ic.text || ic.caption || '',
+						buttonText: ic.buttonText || 'Menu',
+						footerText: ic.footer || '',
+						listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
+						sections: ic.sections.map((section: any) => ({
+							title: section.title || '',
+							rows: Array.isArray(section.rows)
+								? section.rows.map((row: any) => ({
+									title: row.title || '',
+									description: row.description || '',
+									rowId: row.id || row.rowId || ''
+								}))
+								: []
+						}))
+					}
+
+					const msg = generateWAMessageFromContent(
+						jid,
+						{ listMessage },
+						{
+							userJid,
+							quoted: options?.quoted || undefined
+						}
+					)
+
+					await relayMessage(jid, msg.message!, {
+						messageId: msg.key.id!,
+						additionalNodes: [
+							{
+								tag: 'biz',
+								attrs: {},
+								content: [
+									{
+										tag: 'list',
+										attrs: { type: 'product_list', v: '2' }
+									}
+								]
+							}
+						]
+					})
+
+					return msg
+				}
+
+				// â”€â”€ Carousel / Card message path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+				if (ic.cards && Array.isArray(ic.cards) && ic.cards.length > 0) {
+					const carouselCards: proto.Message.InteractiveMessage.ICarouselMessage['cards'] = []
+
+					const getImageMedia = async (image: any) => {
+						if (!image) {
+							throw new Error('Image cannot be empty')
+						}
+
+						if (typeof image === 'string') {
+							return await prepareWAMessageMedia({ image: { url: image } }, mediaOptions)
+						}
+
+						if (Buffer.isBuffer(image)) {
+							return await prepareWAMessageMedia({ image }, mediaOptions)
+						}
+
+						if (typeof image === 'object') {
+							return await prepareWAMessageMedia({ image }, mediaOptions)
+						}
+
+						throw new Error('Unsupported image format')
+					}
+
+					for (let i = 0; i < ic.cards.length; i++) {
+						const item = ic.cards[i]!
+						const img = await getImageMedia(item.image)
+
+						carouselCards.push({
+							header: proto.Message.InteractiveMessage.Header.fromObject({
+								title: item.caption || `Card ${i + 1}`,
+								hasMediaAttachment: true,
+								...img
+							}),
+							nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+								buttons: Array.isArray(item.buttons) ? item.buttons : []
+							}),
+							footer: proto.Message.InteractiveMessage.Footer.create({ text: ic.footer || '' })
+						})
+					}
+
+					const msg = generateWAMessageFromContent(
+						jid,
+						{
+							viewOnceMessage: {
+								message: {
+									messageContextInfo: {
+										deviceListMetadata: {},
+										deviceListMetadataVersion: 2
+									},
+									interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+										body: proto.Message.InteractiveMessage.Body.fromObject({ text: ic.text || '' }),
+										carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
+											cards: carouselCards
+										})
+									})
+								}
+							}
+						},
+						{
+							userJid,
+							quoted: options?.quoted || undefined
+						}
+					)
+
+					await relayMessage(jid, msg.message!, { messageId: msg.key.id! })
+					return msg
+				}
+
+				// â”€â”€ Button / Interactive message path (default) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+				const {
+					text: icText = '',
+					caption: icCaption = '',
+					title: icTitle = '',
+					footer: icFooter = '',
+					buttons: rawButtons = [],
+					hasMediaAttachment: icHasMedia = false,
+					image = null,
+					video = null,
+					document: doc = null,
+					fileName = null,
+					mimetype = null,
+					jpegThumbnail = null,
+					location = null,
+					product = null,
+					businessOwnerJid = null,
+					externalAdReply = null,
+					mentionedJid = null
+				} = ic as any
+
+				// Process buttons into native flow format
+				const processedButtons: Array<{ name: string; buttonParamsJson: string }> = []
+				if (Array.isArray(rawButtons)) {
+					for (let i = 0; i < rawButtons.length; i++) {
+						const btn = rawButtons[i]
+						if (!btn || typeof btn !== 'object') {
+							throw new Error(`interactiveButton[${i}] must be an object`)
+						}
+
+						if (btn.name && btn.buttonParamsJson) {
+							processedButtons.push(btn)
+							continue
+						}
+
+						if (btn.id || btn.text || btn.displayText) {
+							processedButtons.push({
+								name: 'quick_reply',
+								buttonParamsJson: JSON.stringify({
+									display_text: btn.text || btn.displayText || `Button ${i + 1}`,
+									id: btn.id || `quick_${i + 1}`
+								})
+							})
+							continue
+						}
+
+						if (btn.buttonId && btn.buttonText?.displayText) {
+							processedButtons.push({
+								name: 'quick_reply',
+								buttonParamsJson: JSON.stringify({
+									display_text: btn.buttonText.displayText,
+									id: btn.buttonId
+								})
+							})
+							continue
+						}
+
+						throw new Error(`interactiveButton[${i}] has invalid shape`)
+					}
+				}
+
+				const messageContent: proto.Message.IInteractiveMessage = {}
+
+				// Build header from media/location/product/title
+				if (image) {
+					const resolvedImage = Buffer.isBuffer(image)
+						? image
+						: typeof image === 'object' && image.url
+							? { url: image.url }
+							: typeof image === 'string'
+								? { url: image }
+								: image
+
+					const preparedMedia = await prepareWAMessageMedia({ image: resolvedImage }, mediaOptions)
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle || '',
+						hasMediaAttachment: icHasMedia || true,
+						imageMessage: preparedMedia.imageMessage
+					})
+				} else if (video) {
+					const resolvedVideo = Buffer.isBuffer(video)
+						? video
+						: typeof video === 'object' && video.url
+							? { url: video.url }
+							: typeof video === 'string'
+								? { url: video }
+								: video
+
+					const preparedMedia = await prepareWAMessageMedia({ video: resolvedVideo }, mediaOptions)
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle || '',
+						hasMediaAttachment: icHasMedia || true,
+						videoMessage: preparedMedia.videoMessage
+					})
+				} else if (doc) {
+					const resolvedDocument = Buffer.isBuffer(doc)
+						? doc
+						: typeof doc === 'object' && doc.url
+							? { url: doc.url }
+							: typeof doc === 'string'
+								? { url: doc }
+								: doc
+
+					const mediaInput: any = {
+						document: resolvedDocument,
+						mimetype: mimetype || 'application/octet-stream'
+					}
+					if (fileName) {
+						mediaInput.fileName = fileName
+					}
+
+					if (jpegThumbnail) {
+						if (Buffer.isBuffer(jpegThumbnail)) {
+							mediaInput.jpegThumbnail = jpegThumbnail
+						} else if (typeof jpegThumbnail === 'string') {
+							try {
+								const response = await fetch(jpegThumbnail)
+								const arrayBuffer = await response.arrayBuffer()
+								mediaInput.jpegThumbnail = Buffer.from(arrayBuffer)
+							} catch {
+								// ignore
+							}
+						}
+					}
+
+					const preparedMedia = await prepareWAMessageMedia(mediaInput, mediaOptions)
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle || '',
+						hasMediaAttachment: icHasMedia || true,
+						documentMessage: preparedMedia.documentMessage
+					})
+				} else if (location && typeof location === 'object') {
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle || location.name || 'Location',
+						hasMediaAttachment: icHasMedia || false,
+						locationMessage: {
+							degreesLatitude: (location as any).degressLatitude || location.degreesLatitude || 0,
+							degreesLongitude: (location as any).degressLongitude || location.degreesLongitude || 0,
+							name: location.name || '',
+							address: location.address || ''
+						}
+					})
+				} else if (product && typeof product === 'object') {
+					let productImageMessage = null
+					if (product.productImage) {
+						const resolvedProductImage = Buffer.isBuffer(product.productImage)
+							? product.productImage
+							: typeof product.productImage === 'object' && (product.productImage as any).url
+								? { url: (product.productImage as any).url }
+								: typeof product.productImage === 'string'
+									? { url: product.productImage }
+									: product.productImage
+						const preparedMedia = await prepareWAMessageMedia({ image: resolvedProductImage as any }, mediaOptions)
+						productImageMessage = preparedMedia.imageMessage
+					}
+
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle || product.title || 'Product',
+						hasMediaAttachment: icHasMedia || false,
+						productMessage: {
+							product: {
+								productImage: productImageMessage,
+								productId: product.productId || '',
+								title: product.title || '',
+								description: product.description || '',
+								currencyCode: product.currencyCode || 'USD',
+								priceAmount1000: parseInt(String(product.priceAmount1000)) || 0,
+								retailerId: product.retailerId || '',
+								url: product.url || '',
+								productImageCount: product.productImageCount || 1
+							},
+							businessOwnerJid: businessOwnerJid || product.businessOwnerJid || userJid
+						}
+					})
+				} else if (icTitle) {
+					messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
+						title: icTitle,
+						hasMediaAttachment: false
+					})
+				}
+
+				// Body
+				const hasMedia = !!(image || video || doc || location || product)
+				const bodyText = hasMedia ? icCaption : icText || icCaption
+				if (bodyText) {
+					messageContent.body = proto.Message.InteractiveMessage.Body.fromObject({ text: bodyText })
+				}
+
+				// Footer
+				if (icFooter) {
+					messageContent.footer = proto.Message.InteractiveMessage.Footer.fromObject({ text: icFooter })
+				}
+
+				// Native flow buttons
+				if (processedButtons.length > 0) {
+					messageContent.nativeFlowMessage = proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+						buttons: processedButtons
+					})
+				}
+
+				// Context info (external ad reply, mentions)
+				if (externalAdReply && typeof externalAdReply === 'object') {
+					messageContent.contextInfo = {
+						externalAdReply: {
+							title: externalAdReply.title || '',
+							body: externalAdReply.body || '',
+							mediaType: externalAdReply.mediaType || 1,
+							sourceUrl: externalAdReply.sourceUrl || externalAdReply.url || '',
+							thumbnailUrl: externalAdReply.thumbnailUrl || '',
+							renderLargerThumbnail: externalAdReply.renderLargerThumbnail || false,
+							showAdAttribution: externalAdReply.showAdAttribution !== false,
+							containsAutoReply: externalAdReply.containsAutoReply || false,
+							...(externalAdReply.mediaUrl && { mediaUrl: externalAdReply.mediaUrl }),
+							...(externalAdReply.thumbnail && Buffer.isBuffer(externalAdReply.thumbnail)
+								? { thumbnail: externalAdReply.thumbnail }
+								: {}),
+							...(externalAdReply.jpegThumbnail && { jpegThumbnail: externalAdReply.jpegThumbnail })
+						},
+						...(mentionedJid ? { mentionedJid } : {})
+					}
+				} else if (mentionedJid) {
+					messageContent.contextInfo = { mentionedJid }
+				}
+
+				const payload = proto.Message.InteractiveMessage.create(messageContent)
+				const msg = generateWAMessageFromContent(
+					jid,
+					{
+						viewOnceMessage: {
+							message: {
+								interactiveMessage: payload
+							}
+						}
+					},
+					{
+						userJid,
+						quoted: options?.quoted || undefined
+					}
+				)
+
+				await relayMessage(jid, msg.message!, {
+					messageId: msg.key.id!,
+					additionalNodes: [
+						{
+							tag: 'biz',
+							attrs: {},
+							content: [
+								{
+									tag: 'interactive',
+									attrs: { type: 'native_flow', v: '1' },
+									content: [
+										{
+											tag: 'native_flow',
+											attrs: { v: '9', name: 'mixed' }
+										}
+									]
+								}
+							]
+						}
+					]
+				})
+
+				return msg
+			}
+
 			let mediaHandle: string | undefined
 			const uploadWithHandle = async (filePath: string, uploadOptions: any) => {
 				const uploaded = await waUploadToServer(filePath, uploadOptions)
@@ -1307,347 +1694,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			}
 
 			return fullMsg
-		},
-		sendButton: async (jid: string, content: any = {}, options: any = {}) => {
-			const userJid = authState.creds.me?.id
-			if (!userJid) {
-				throw new Error('User not authenticated')
-			}
-
-			const {
-				text = '',
-				caption = '',
-				title = '',
-				footer = '',
-				buttons = [],
-				hasMediaAttachment = false,
-				image = null,
-				video = null,
-				document = null,
-				fileName = null,
-				mimetype = null,
-				jpegThumbnail = null,
-				location = null,
-				product = null,
-				businessOwnerJid = null,
-				externalAdReply = null
-			} = content
-
-			if (!Array.isArray(buttons) || buttons.length === 0) {
-				throw new Error('buttons must be a non-empty array')
-			}
-
-			const processedButtons: Array<{ name: string; buttonParamsJson: string }> = []
-
-			for (let i = 0; i < buttons.length; i++) {
-				const btn = buttons[i]
-
-				if (!btn || typeof btn !== 'object') {
-					throw new Error(`interactiveButton[${i}] must be an object`)
-				}
-
-				if (btn.name && btn.buttonParamsJson) {
-					processedButtons.push(btn)
-					continue
-				}
-
-				if (btn.id || btn.text || btn.displayText) {
-					processedButtons.push({
-						name: 'quick_reply',
-						buttonParamsJson: JSON.stringify({
-							display_text: btn.text || btn.displayText || `Button ${i + 1}`,
-							id: btn.id || `quick_${i + 1}`
-						})
-					})
-					continue
-				}
-
-				if (btn.buttonId && btn.buttonText?.displayText) {
-					processedButtons.push({
-						name: 'quick_reply',
-						buttonParamsJson: JSON.stringify({
-							display_text: btn.buttonText.displayText,
-							id: btn.buttonId
-						})
-					})
-					continue
-				}
-
-				throw new Error(`interactiveButton[${i}] has invalid shape`)
-			}
-
-			const messageContent: proto.Message.IInteractiveMessage = {}
-			const mediaOptions = { upload: waUploadToServer, mediaCache: config.mediaCache, options: config.options, logger }
-
-			if (image) {
-				const resolvedImage = Buffer.isBuffer(image)
-					? image
-					: typeof image === 'object' && image.url
-						? { url: image.url }
-						: typeof image === 'string'
-							? { url: image }
-							: image
-
-				const preparedMedia = await prepareWAMessageMedia({ image: resolvedImage }, mediaOptions)
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title: title || '',
-					hasMediaAttachment: hasMediaAttachment || true,
-					imageMessage: preparedMedia.imageMessage
-				})
-			} else if (video) {
-				const resolvedVideo = Buffer.isBuffer(video)
-					? video
-					: typeof video === 'object' && video.url
-						? { url: video.url }
-						: typeof video === 'string'
-							? { url: video }
-							: video
-
-				const preparedMedia = await prepareWAMessageMedia({ video: resolvedVideo }, mediaOptions)
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title: title || '',
-					hasMediaAttachment: hasMediaAttachment || true,
-					videoMessage: preparedMedia.videoMessage
-				})
-			} else if (document) {
-				const resolvedDocument = Buffer.isBuffer(document)
-					? document
-					: typeof document === 'object' && document.url
-						? { url: document.url }
-						: typeof document === 'string'
-							? { url: document }
-							: document
-
-				const mediaInput: any = {
-					document: resolvedDocument,
-					mimetype: mimetype || 'application/octet-stream'
-				}
-				if (fileName) {
-					mediaInput.fileName = fileName
-				}
-
-				if (jpegThumbnail) {
-					if (Buffer.isBuffer(jpegThumbnail)) {
-						mediaInput.jpegThumbnail = jpegThumbnail
-					} else if (typeof jpegThumbnail === 'string') {
-						try {
-							const response = await fetch(jpegThumbnail)
-							const arrayBuffer = await response.arrayBuffer()
-							mediaInput.jpegThumbnail = Buffer.from(arrayBuffer)
-						} catch {
-							// ignore
-						}
-					}
-				}
-
-				const preparedMedia = await prepareWAMessageMedia(mediaInput, mediaOptions)
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title: title || '',
-					hasMediaAttachment: hasMediaAttachment || true,
-					documentMessage: preparedMedia.documentMessage
-				})
-			} else if (location && typeof location === 'object') {
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title: title || location.name || 'Location',
-					hasMediaAttachment: hasMediaAttachment || false,
-					locationMessage: {
-						degreesLatitude: location.degressLatitude || location.degreesLatitude || 0,
-						degreesLongitude: location.degressLongitude || location.degreesLongitude || 0,
-						name: location.name || '',
-						address: location.address || ''
-					}
-				})
-			} else if (product && typeof product === 'object') {
-				let productImageMessage = null
-				if (product.productImage) {
-					const resolvedProductImage = Buffer.isBuffer(product.productImage)
-						? product.productImage
-						: typeof product.productImage === 'object' && product.productImage.url
-							? { url: product.productImage.url }
-							: typeof product.productImage === 'string'
-								? { url: product.productImage }
-								: product.productImage
-					const preparedMedia = await prepareWAMessageMedia({ image: resolvedProductImage }, mediaOptions)
-					productImageMessage = preparedMedia.imageMessage
-				}
-
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title: title || product.title || 'Product',
-					hasMediaAttachment: hasMediaAttachment || false,
-					productMessage: {
-						product: {
-							productImage: productImageMessage,
-							productId: product.productId || '',
-							title: product.title || '',
-							description: product.description || '',
-							currencyCode: product.currencyCode || 'USD',
-							priceAmount1000: parseInt(product.priceAmount1000) || 0,
-							retailerId: product.retailerId || '',
-							url: product.url || '',
-							productImageCount: product.productImageCount || 1
-						},
-						businessOwnerJid: businessOwnerJid || product.businessOwnerJid || userJid
-					}
-				})
-			} else if (title) {
-				messageContent.header = proto.Message.InteractiveMessage.Header.fromObject({
-					title,
-					hasMediaAttachment: false
-				})
-			}
-
-			const hasMedia = !!(image || video || document || location || product)
-			const bodyText = hasMedia ? caption : text || caption
-
-			if (bodyText) {
-				messageContent.body = proto.Message.InteractiveMessage.Body.fromObject({ text: bodyText })
-			}
-
-			if (footer) {
-				messageContent.footer = proto.Message.InteractiveMessage.Footer.fromObject({ text: footer })
-			}
-
-			messageContent.nativeFlowMessage = proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-				buttons: processedButtons
-			})
-
-			if (externalAdReply && typeof externalAdReply === 'object') {
-				messageContent.contextInfo = {
-					externalAdReply: {
-						title: externalAdReply.title || '',
-						body: externalAdReply.body || '',
-						mediaType: externalAdReply.mediaType || 1,
-						sourceUrl: externalAdReply.sourceUrl || externalAdReply.url || '',
-						thumbnailUrl: externalAdReply.thumbnailUrl || '',
-						renderLargerThumbnail: externalAdReply.renderLargerThumbnail || false,
-						showAdAttribution: externalAdReply.showAdAttribution !== false,
-						containsAutoReply: externalAdReply.containsAutoReply || false,
-						...(externalAdReply.mediaUrl && { mediaUrl: externalAdReply.mediaUrl }),
-						...(externalAdReply.thumbnail && Buffer.isBuffer(externalAdReply.thumbnail)
-							? { thumbnail: externalAdReply.thumbnail }
-							: {}),
-						...(externalAdReply.jpegThumbnail && { jpegThumbnail: externalAdReply.jpegThumbnail })
-					},
-					...(options.mentionedJid ? { mentionedJid: options.mentionedJid } : {})
-				}
-			} else if (options.mentionedJid) {
-				messageContent.contextInfo = { mentionedJid: options.mentionedJid }
-			}
-
-			const payload = proto.Message.InteractiveMessage.create(messageContent)
-			const msg = generateWAMessageFromContent(
-				jid,
-				{
-					viewOnceMessage: {
-						message: {
-							interactiveMessage: payload
-						}
-					}
-				},
-				{
-					userJid,
-					quoted: options?.quoted || null
-				}
-			)
-
-			const additionalNodes: BinaryNode[] = [
-				{
-					tag: 'biz',
-					attrs: {},
-					content: [
-						{
-							tag: 'interactive',
-							attrs: { type: 'native_flow', v: '1' },
-							content: [
-								{
-									tag: 'native_flow',
-									attrs: { v: '9', name: 'mixed' }
-								}
-							]
-						}
-					]
-				}
-			]
-
-			await relayMessage(jid, msg.message!, {
-				messageId: msg.key.id!,
-				additionalNodes
-			})
-
-			return msg
-		},
-		sendCard: async (jid: string, options: any = {}) => {
-			const { text = '', footer = '', cards = [], quoted = null, sender = jid } = options
-			if (!cards.length) {
-				throw new Error('cards cannot be empty')
-			}
-
-			const carouselCards: proto.Message.InteractiveMessage.ICarouselMessage['cards'] = []
-			const mediaOptions = { upload: waUploadToServer, mediaCache: config.mediaCache, options: config.options, logger }
-
-			const getImageMedia = async (image: any) => {
-				if (!image) {
-					throw new Error('Image cannot be empty')
-				}
-
-				if (typeof image === 'string') {
-					return await prepareWAMessageMedia({ image: { url: image } }, mediaOptions)
-				}
-
-				if (Buffer.isBuffer(image)) {
-					return await prepareWAMessageMedia({ image }, mediaOptions)
-				}
-
-				if (typeof image === 'object') {
-					return await prepareWAMessageMedia({ image }, mediaOptions)
-				}
-
-				throw new Error('Format image tidak didukung')
-			}
-
-			for (let i = 0; i < cards.length; i++) {
-				const item = cards[i]
-				const img = await getImageMedia(item.image)
-
-				carouselCards.push({
-					header: proto.Message.InteractiveMessage.Header.fromObject({
-						title: item.caption || `Card ${i + 1}`,
-						hasMediaAttachment: true,
-						...img
-					}),
-					nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-						buttons: Array.isArray(item.buttons) ? item.buttons : []
-					}),
-					footer: proto.Message.InteractiveMessage.Footer.create({ text: footer })
-				})
-			}
-
-			const msg = await generateWAMessageFromContent(
-				jid,
-				{
-					viewOnceMessage: {
-						message: {
-							messageContextInfo: {
-								deviceListMetadata: {},
-								deviceListMetadataVersion: 2
-							},
-							interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-								body: proto.Message.InteractiveMessage.Body.fromObject({ text }),
-								carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
-									cards: carouselCards
-								})
-							})
-						}
-					}
-				},
-				{
-					userJid: sender,
-					quoted
-				}
-			)
-
-			await relayMessage(jid, msg.message!, { messageId: msg.key.id! })
-			return msg
 		}
 	}
 }
+

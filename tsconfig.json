@@ -8,16 +8,15 @@
     "sourceMap": true,
     "declarationMap": true,
     "moduleDetection": "force",
-
-    "lib": ["ES2020", "ESNext.Array", "DOM"],
+    "lib": [
+      "ES2020",
+      "ESNext.Array",
+      "DOM"
+    ],
     "rootDir": "./src",
-
-    // ESM Features
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-
-    // Type Safety
     "strict": true,
     "strictNullChecks": true,
     "noFallthroughCasesInSwitch": true,
@@ -25,15 +24,15 @@
     "noImplicitThis": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-
-    // Interop
     "esModuleInterop": true,
     "resolveJsonModule": true,
-
-    // DX Boosters
     "allowJs": false,
     "checkJs": false,
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

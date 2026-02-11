@@ -167,51 +167,51 @@ type RequestPhoneNumber = {
 
 export type AnyMediaMessageContent = (
 	| ({
-			image: WAMediaUpload
-			caption?: string
-			jpegThumbnail?: string
-	  } & Mentionable &
-			Contextable &
-			WithDimensions)
+		image: WAMediaUpload
+		caption?: string
+		jpegThumbnail?: string
+	} & Mentionable &
+		Contextable &
+		WithDimensions)
 	| ({
-			video: WAMediaUpload
-			caption?: string
-			gifPlayback?: boolean
-			jpegThumbnail?: string
-			/** if set to true, will send as a `video note` */
-			ptv?: boolean
-	  } & Mentionable &
-			Contextable &
-			WithDimensions)
+		video: WAMediaUpload
+		caption?: string
+		gifPlayback?: boolean
+		jpegThumbnail?: string
+		/** if set to true, will send as a `video note` */
+		ptv?: boolean
+	} & Mentionable &
+		Contextable &
+		WithDimensions)
 	| {
-			audio: WAMediaUpload
-			/** if set to true, will send as a `voice note` */
-			ptt?: boolean
-			/** optionally tell the duration of the audio */
-			seconds?: number
-	  }
+		audio: WAMediaUpload
+		/** if set to true, will send as a `voice note` */
+		ptt?: boolean
+		/** optionally tell the duration of the audio */
+		seconds?: number
+	}
 	| ({
-			sticker: WAMediaUpload
-			isAnimated?: boolean
-	  } & WithDimensions)
+		sticker: WAMediaUpload
+		isAnimated?: boolean
+	} & WithDimensions)
 	| ({
-			document: WAMediaUpload
-			mimetype: string
-			fileName?: string
-			caption?: string
-	  } & Contextable)
+		document: WAMediaUpload
+		mimetype: string
+		fileName?: string
+		caption?: string
+	} & Contextable)
 ) & { mimetype?: string } & Editable
 
 export type AlbumMedia = (
 	| {
-			image: WAMediaUpload
-			caption?: string
-	  }
+		image: WAMediaUpload
+		caption?: string
+	}
 	| {
-			video: WAMediaUpload
-			caption?: string
-			gifPlayback?: boolean
-	  }
+		video: WAMediaUpload
+		caption?: string
+		gifPlayback?: boolean
+	}
 ) & Editable
 
 export type ButtonReplyInfo = {
@@ -234,52 +234,52 @@ export type WASendableProduct = Omit<proto.Message.ProductMessage.IProductSnapsh
 
 export type AnyRegularMessageContent = (
 	| ({
-			text: string
-			linkPreview?: WAUrlInfo | null
-	  } & Mentionable &
-			Contextable &
-			Editable)
+		text: string
+		linkPreview?: WAUrlInfo | null
+	} & Mentionable &
+		Contextable &
+		Editable)
 	| AnyMediaMessageContent
 	| { event: EventMessageOptions }
 	| ({
-			poll: PollMessageOptions
-	  } & Mentionable &
-			Contextable &
-			Editable)
+		poll: PollMessageOptions
+	} & Mentionable &
+		Contextable &
+		Editable)
 	| {
-			contacts: {
-				displayName?: string
-				contacts: proto.Message.IContactMessage[]
-			}
-	  }
+		contacts: {
+			displayName?: string
+			contacts: proto.Message.IContactMessage[]
+		}
+	}
 	| {
-			location: WALocationMessage
-	  }
+		location: WALocationMessage
+	}
 	| { react: proto.Message.IReactionMessage }
 	| {
-			buttonReply: ButtonReplyInfo
-			type: 'template' | 'plain'
-	  }
+		buttonReply: ButtonReplyInfo
+		type: 'template' | 'plain'
+	}
 	| {
-			groupInvite: GroupInviteInfo
-	  }
+		groupInvite: GroupInviteInfo
+	}
 	| {
-			listReply: Omit<proto.Message.IListResponseMessage, 'contextInfo'>
-	  }
+		listReply: Omit<proto.Message.IListResponseMessage, 'contextInfo'>
+	}
 	| {
-			pin: WAMessageKey
-			type: proto.PinInChat.Type
-			/**
-			 * 24 hours, 7 days, 30 days
-			 */
-			time?: 86400 | 604800 | 2592000
-	  }
+		pin: WAMessageKey
+		type: proto.PinInChat.Type
+		/**
+		 * 24 hours, 7 days, 30 days
+		 */
+		time?: 86400 | 604800 | 2592000
+	}
 	| {
-			product: WASendableProduct
-			businessOwnerJid?: string
-			body?: string
-			footer?: string
-	  }
+		product: WASendableProduct
+		businessOwnerJid?: string
+		body?: string
+		footer?: string
+	}
 	| SharePhoneNumber
 	| RequestPhoneNumber
 ) &
@@ -288,23 +288,118 @@ export type AnyRegularMessageContent = (
 export type AnyMessageContent =
 	| (AnyRegularMessageContent & MessageExtras)
 	| ({
-			forward: WAMessage
-			force?: boolean
-	  } & MessageExtras)
+		forward: WAMessage
+		force?: boolean
+	} & MessageExtras)
 	| ({
-			/** Delete your message or anyone's message in a group (admin required) */
-			delete: WAMessageKey
-	  } & MessageExtras)
+		/** Delete your message or anyone's message in a group (admin required) */
+		delete: WAMessageKey
+	} & MessageExtras)
 	| ({
-			disappearingMessagesInChat: boolean | number
-	  } & MessageExtras)
+		disappearingMessagesInChat: boolean | number
+	} & MessageExtras)
 	| ({
-			limitSharing: boolean
-	  } & MessageExtras)
+		limitSharing: boolean
+	} & MessageExtras)
 	| ({
-			album: AlbumMedia[]
-			caption?: string
-	  } & MessageExtras)
+		album: AlbumMedia[]
+		caption?: string
+	} & MessageExtras)
+	| ({
+		/** Send interactive message (buttons, cards, lists) via sendMessage */
+		interactiveMessage: InteractiveMessageContent
+	} & MessageExtras)
+
+export type InteractiveMessageContent = {
+	/** Body text (or caption when media is present) */
+	text?: string
+	caption?: string
+	/** Header title */
+	title?: string
+	/** Footer text */
+	footer?: string
+	/** Interactive buttons (native flow format) */
+	buttons?: InteractiveButton[]
+	/** Carousel cards */
+	cards?: InteractiveCard[]
+	/** List sections (for list-type messages) */
+	sections?: InteractiveListSection[]
+	/** Button text for list messages */
+	buttonText?: string
+	/** Image attachment */
+	image?: WAMediaUpload | string | null
+	/** Video attachment */
+	video?: WAMediaUpload | string | null
+	/** Document attachment */
+	document?: WAMediaUpload | string | null
+	/** Document file name */
+	fileName?: string | null
+	/** Document MIME type */
+	mimetype?: string | null
+	/** JPEG thumbnail */
+	jpegThumbnail?: Buffer | string | null
+	/** Whether header has media attachment */
+	hasMediaAttachment?: boolean
+	/** Location data */
+	location?: {
+		degreesLatitude: number
+		degreesLongitude: number
+		name?: string
+		address?: string
+	} | null
+	/** Product data */
+	product?: {
+		productImage?: WAMediaUpload | string | null
+		productId?: string
+		title?: string
+		description?: string
+		currencyCode?: string
+		priceAmount1000?: number
+		retailerId?: string
+		url?: string
+		productImageCount?: number
+		businessOwnerJid?: string
+	} | null
+	/** Business owner JID */
+	businessOwnerJid?: string | null
+	/** External ad reply */
+	externalAdReply?: {
+		title?: string
+		body?: string
+		mediaType?: number
+		sourceUrl?: string
+		url?: string
+		thumbnailUrl?: string
+		renderLargerThumbnail?: boolean
+		showAdAttribution?: boolean
+		containsAutoReply?: boolean
+		mediaUrl?: string
+		thumbnail?: Buffer
+		jpegThumbnail?: Buffer
+	} | null
+	/** JIDs to mention */
+	mentionedJid?: string[]
+}
+
+export type InteractiveButton =
+	| { name: string; buttonParamsJson: string }
+	| { id: string; text?: string; displayText?: string }
+	| { buttonId: string; buttonText: { displayText: string } }
+
+export type InteractiveCard = {
+	image: WAMediaUpload | string
+	caption?: string
+	buttons?: Array<{ name: string; buttonParamsJson: string }>
+}
+
+export type InteractiveListSection = {
+	title: string
+	rows: Array<{
+		id: string
+		title: string
+		description?: string
+	}>
+}
 
 export type GroupMetadataParticipants = Pick<GroupMetadata, 'participants'>
 
